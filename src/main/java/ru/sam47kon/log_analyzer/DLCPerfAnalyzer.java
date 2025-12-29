@@ -7,7 +7,6 @@ import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
-import ru.sam47kon.log_analyzer.LogAnalyzer.TransitionCount;
 
 import java.io.FileOutputStream;
 import java.io.FileWriter;
@@ -16,25 +15,22 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static ru.sam47kon.log_analyzer.LogAnalyzer.logDebug;
-import static ru.sam47kon.log_analyzer.LogAnalyzer.logError;
+import static ru.sam47kon.log_analyzer.LogAnalyzer.*;
 
 public class DLCPerfAnalyzer {
 
 	private static final String DLC_PERF_PATTERN = "dlcperf";
-	private static final String PATH_TO_LOG_FILE = "C:\\Users\\bulavin.ilya\\Downloads\\05\\SUP-1837769\\Logs_exp05_ws10_12_12_2025\\";
+	private static final String PATH_TO_LOG_FILE = "C:\\Users\\bulavin.ilya\\Downloads\\01-SUP-1843316\\";
 	private static final String DELIMITER = ": ";
 	private static final String PATTERN_INFO = "Детали перехода ";
 	private static final String MS = "ms";
 	private static final String SEPARATOR = System.lineSeparator() + "\t";
 	private static final String DETAIL_LOG_CSV = "detailLog.csv";
 	private static final String DETAIL_LOG_XLSX = "detailLog.xlsx";
-	private static final SimpleDateFormat TIME_LOG_FORMAT_05 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss,SSS");
 	private static final String DEBUG = " DEBUG";
 
 	// 2025-03-27 09:24:17,376 DEBUG [ExecutorService424b17d1-3dc5-4497-8c72-a3bf790ce2609] [LIFECYCLE-PERF-LOG] []: Детали перехода 9c9dd388-641f-4966-b96c-583a4da08074 для документа MSC_ApplCashFlowShrt:
@@ -42,7 +38,7 @@ public class DLCPerfAnalyzer {
 	public static void main(String[] args) {
 		List<Info> infos = new ArrayList<>();
 		Date startLog = new Date(java.sql.Date.valueOf("2050-01-01").getTime());
-		Date endLog = new Date(java.sql.Date.valueOf("2000-01-01").getTime());
+		Date endLog = new Date(java.sql.Date.valueOf("1970-01-01").getTime());
 		try (Stream<Path> paths = Files.find(
 				Paths.get(PATH_TO_LOG_FILE),
 				Integer.MAX_VALUE, // Максимальная глубина рекурсии (1 — только текущая папка, MAX_VALUE — рекурсивно)
@@ -66,8 +62,8 @@ public class DLCPerfAnalyzer {
 		}
 
 		infos.sort(Comparator.naturalOrder());
-		System.out.println("Начало лога: " + TIME_LOG_FORMAT_05.format(startLog));
-		System.out.println("Конец лога: " + TIME_LOG_FORMAT_05.format(endLog));
+		System.out.println("Начало лога: " + TIME_LOG_FORMAT.format(startLog));
+		System.out.println("Конец лога: " + TIME_LOG_FORMAT.format(endLog));
 		System.out.println("Всего успешных переходов: " + infos.size());
 		// "Переходы:
 		System.out.println(formatTransitionCounts1(infos));
@@ -88,7 +84,7 @@ public class DLCPerfAnalyzer {
 			if (!scanner.hasNextLine()) {
 				continue;
 			}
-			Date timeLog = TIME_LOG_FORMAT_05.parse(StringUtils.substringBefore(line, DEBUG));
+			Date timeLog = TIME_LOG_FORMAT.parse(StringUtils.substringBefore(line, DEBUG));
 			if (timeLog.before(startLog)) {
 				startLog.setTime(timeLog.getTime());
 			}

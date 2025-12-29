@@ -25,15 +25,16 @@ public class LogAnalyzer {
 	public static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("HH:mm:ss.SSS");
 	public static final SimpleDateFormat TIME_LOG_FORMAT_FROM = new SimpleDateFormat("yyyy-MM-dd HH:mm");
 	public static final SimpleDateFormat TIME_LOG_FORMAT_TO = new SimpleDateFormat("HH:mm");
+	public static final boolean IS_NEW_DATE_FORMAT = false;
+	public static final SimpleDateFormat TIME_LOG_FORMAT = IS_NEW_DATE_FORMAT
+			? new SimpleDateFormat("yyyy-MM-dd HH:mm:ss,SSS")
+			: new SimpleDateFormat("MM-dd;HH:mm:ss.SSS");
 
-	private static final String PATH_TO_LOG_FILE = "C:\\Users\\bulavin.ilya\\Downloads\\05\\SUP-1837769\\Logs_exp05_ws10_12_12_2025\\";
+	private static final String PATH_TO_LOG_FILE = "C:\\Users\\bulavin.ilya\\Downloads\\01-SUP-1843316\\";
 	private static final String SERVER_PATTERN = "server";
 	private static final String PATTERN_IS_VERIFY = "Операция checkDocument";
-	private static final boolean IS_05 = true;
-	private static final String PATTERN_IS_TRANSITION = "[c.o.s.s.d.LifeCycleServiceImpl]";
+	private static final String PATTERN_IS_TRANSITION = "c.o.s.s.d.LifeCycleServiceImpl]";
 	private static final String PATTERN_IS_TRANSITION_2 = "Переход ";
-	private static final SimpleDateFormat TIME_LOG_FORMAT = new SimpleDateFormat("MM-dd;HH:mm:ss.SSS");
-	private static final SimpleDateFormat TIME_LOG_FORMAT_05 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss,SSS");
 
 	private static final String SERVER_LOG_DETAILS = "serverLogDetails.log";
 
@@ -57,7 +58,7 @@ public class LogAnalyzer {
 			matchingFiles.forEach(file -> {
 				try (Scanner scanner = new Scanner(file)) {
 					logDebug("Анализ файла: " + file.getFileName());
-					analyze(analysisData, infosByDate, scanner, IS_05 ? TIME_LOG_FORMAT_05 : TIME_LOG_FORMAT);
+					analyze(analysisData, infosByDate, scanner);
 				} catch (Exception e) {
 					logError(String.format("Ошибка при обработке файла [%s]: %s", file.getFileName(), ExceptionUtils.getRootCauseMessage(e)));
 				}
@@ -79,7 +80,7 @@ public class LogAnalyzer {
 		System.err.println(DATE_FORMAT.format(new Date()) + ": " + errMessage);
 	}
 
-	private static void analyze(AnalysisData analysisData, TreeSet<Info> infosByDate, @NotNull Scanner scanner, SimpleDateFormat time_log_format) throws ParseException {
+	private static void analyze(AnalysisData analysisData, TreeSet<Info> infosByDate, @NotNull Scanner scanner) throws ParseException {
 		boolean isFirstLine = true;
 		String line = null;
 		long numLine = 0;
@@ -105,7 +106,7 @@ public class LogAnalyzer {
 				continue;
 			}
 
-			Date timeLog = time_log_format.parse(StringUtils.substringBefore(line, " INFO"));
+			Date timeLog = LogAnalyzer.TIME_LOG_FORMAT.parse(StringUtils.substringBefore(line, " INFO"));
 			String threadName = StringUtils.substringBetween(line, "[", "]");
 			String log = StringUtils.substringAfter(line, PATTERN_IS_TRANSITION_2);
 			String[] split = log.split(" для документа ");
