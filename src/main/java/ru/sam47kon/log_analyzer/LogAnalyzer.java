@@ -25,12 +25,12 @@ public class LogAnalyzer {
 	public static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("HH:mm:ss.SSS");
 	public static final SimpleDateFormat TIME_LOG_FORMAT_FROM = new SimpleDateFormat("yyyy-MM-dd HH:mm");
 	public static final SimpleDateFormat TIME_LOG_FORMAT_TO = new SimpleDateFormat("HH:mm");
-	public static final boolean IS_NEW_DATE_FORMAT = false;
+	public static final boolean IS_NEW_DATE_FORMAT = true;
 	public static final SimpleDateFormat TIME_LOG_FORMAT = IS_NEW_DATE_FORMAT
 			? new SimpleDateFormat("yyyy-MM-dd HH:mm:ss,SSS")
 			: new SimpleDateFormat("MM-dd;HH:mm:ss.SSS");
 
-	private static final String PATH_TO_LOG_FILE = "C:\\Users\\bulavin.ilya\\Downloads\\01-SUP-1843316\\";
+	private static final String PATH_TO_LOG_FILE = "C:\\Users\\bulavin.ilya\\Downloads\\SUP-1921409\\";
 	private static final String SERVER_PATTERN = "server";
 	private static final String PATTERN_IS_VERIFY = "Операция checkDocument";
 	private static final String PATTERN_IS_TRANSITION = "c.o.s.s.d.LifeCycleServiceImpl]";
