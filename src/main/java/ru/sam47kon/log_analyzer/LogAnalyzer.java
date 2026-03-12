@@ -30,7 +30,7 @@ public class LogAnalyzer {
 			? new SimpleDateFormat("yyyy-MM-dd HH:mm:ss,SSS")
 			: new SimpleDateFormat("MM-dd;HH:mm:ss.SSS");
 
-	private static final String PATH_TO_LOG_FILE = "C:\\Users\\bulavin.ilya\\Downloads\\SUP-1921409\\";
+	private static final String PATH_TO_LOG_FILE = "C:\\Users\\bulavin.ilya\\Downloads\\SUP-1923834\\";
 	private static final String SERVER_PATTERN = "server";
 	private static final String PATTERN_IS_VERIFY = "Операция checkDocument";
 	private static final String PATTERN_IS_TRANSITION = "c.o.s.s.d.LifeCycleServiceImpl]";
