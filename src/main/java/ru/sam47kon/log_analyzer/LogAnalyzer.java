@@ -397,9 +397,12 @@ public class LogAnalyzer {
 		writer.newLine();
 		writer.write("Количество переходов по временным интервалам (" + intervalMinutes + " минут):");
 		writer.newLine();
-		for (Map.Entry<String, Integer> entry : transitionsByInterval.entrySet()) {
-			writer.write(entry.getKey() + ": " + entry.getValue());
-			writer.newLine();
+
+		if (!transitionsByInterval.isEmpty()) {
+			List<String> lines = transitionsByInterval.entrySet().stream()
+					.map(entry -> entry.getKey() + ": " + entry.getValue())
+					.toList();
+			writer.write(String.join(System.lineSeparator(), lines));
 		}
 	}
 
