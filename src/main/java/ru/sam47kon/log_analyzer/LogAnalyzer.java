@@ -26,13 +26,17 @@ public class LogAnalyzer {
 	public static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("HH:mm:ss.SSS");
 	public static final SimpleDateFormat TIME_LOG_FORMAT_FROM = new SimpleDateFormat("yyyy-MM-dd HH:mm");
 	public static final SimpleDateFormat TIME_LOG_FORMAT_TO = new SimpleDateFormat("HH:mm");
+	// Можно менять под себя
 	public static final boolean IS_NEW_DATE_FORMAT = true;
 	public static final SimpleDateFormat TIME_LOG_FORMAT = IS_NEW_DATE_FORMAT
 			? new SimpleDateFormat("yyyy-MM-dd HH:mm:ss,SSS")
 			: new SimpleDateFormat("MM-dd;HH:mm:ss.SSS");
 
 	private static final String PATH_TO_LOG_FILE = "C:\\Users\\bulavin.ilya\\Downloads\\SUP-1923834\\";
+	// Можно менять под себя
 	private static final int INTERVAL_MINUTES = 5;
+	// Можно менять под себя
+	private static final long LONG_TRANSITIONS = 6_000;
 
 	private static final String SERVER_PATTERN = "server";
 	private static final String PATTERN_IS_VERIFY = "Операция checkDocument";
@@ -354,13 +358,13 @@ public class LogAnalyzer {
 				// Вычисляем длительность перехода в миллисекундах
 				long durationMillis = endInfo.timeLog().getTime() - startInfo.timeLog().getTime();
 				// Проверяем, превышает ли длительность N ms
-				if (durationMillis > 6_000) {
+				if (durationMillis > LONG_TRANSITIONS) {
 					// Пишем информацию о переходе
 					longTransitions.add(new Pair<>(String.format("\n\t%s: %s %d ms", guid, startInfo, durationMillis), durationMillis));
 				}
 			}
 		});
-		writer.write(String.format("Переходы более 6 секунд: %d", longTransitions.size()));
+		writer.write(String.format("Переходы более %d секунд: %d", LONG_TRANSITIONS / 1000, longTransitions.size()));
 		if (longTransitions.isEmpty()) {
 			return;
 		}
