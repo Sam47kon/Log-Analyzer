@@ -32,7 +32,7 @@ public class LogAnalyzer {
 			? new SimpleDateFormat("yyyy-MM-dd HH:mm:ss,SSS")
 			: new SimpleDateFormat("MM-dd;HH:mm:ss.SSS");
 
-	private static final String PATH_TO_LOG_FILE = "C:\\Users\\bulavin.ilya\\Downloads\\SUP-1946770\\";
+	private static final String PATH_TO_LOG_FILE = "C:\\Users\\bulavin.ilya\\Downloads\\SUP-2094701\\";
 	// Можно менять под себя
 	private static final int INTERVAL_MINUTES = 5;
 	// Можно менять под себя

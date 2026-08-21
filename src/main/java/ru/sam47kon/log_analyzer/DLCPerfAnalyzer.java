@@ -24,7 +24,7 @@ import static ru.sam47kon.log_analyzer.LogAnalyzer.*;
 public class DLCPerfAnalyzer {
 
 	private static final String DLC_PERF_PATTERN = "dlcperf";
-	private static final String PATH_TO_LOG_FILE = "C:\\Users\\bulavin.ilya\\Downloads\\SUP-1946770\\";
+	private static final String PATH_TO_LOG_FILE = "C:\\Users\\bulavin.ilya\\Downloads\\SUP-2094701\\";
 	private static final String DELIMITER = ": ";
 	private static final String PATTERN_INFO = "Детали перехода ";
 	private static final String MS = "ms";

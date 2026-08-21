@@ -5,7 +5,7 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>ru.sam47kon.learn</groupId>
-	<artifactId>leetcode</artifactId>
+	<artifactId>log-analyzer</artifactId>
 	<version>47.0</version>
 
 	<properties>
