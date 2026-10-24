@@ -24,7 +24,7 @@ import static ru.sam47kon.log_analyzer.LogAnalyzer.*;
 
 public class PoibAnalyzer {
 
-	private static final String PATH_TO_LOG_FILE = "C:\\Users\\bulavin.ilya\\Downloads\\fr07_logs\\";
+	private static final String PATH_TO_LOG_FILE = "C:\\Users\\bulavin.ilya\\Downloads\\SUP-2152455\\";
 	private static final int INTERVAL_MINUTES = 5;
 
 	private static final String POIB_PATTERN = "poib";
