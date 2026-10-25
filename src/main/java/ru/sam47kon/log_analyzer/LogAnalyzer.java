@@ -16,21 +16,23 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
+import java.time.*;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class LogAnalyzer {
-	public static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("HH:mm:ss.SSS");
-	public static final SimpleDateFormat TIME_LOG_FORMAT_FROM = new SimpleDateFormat("yyyy-MM-dd HH:mm");
-	public static final SimpleDateFormat TIME_LOG_FORMAT_TO = new SimpleDateFormat("HH:mm");
+	// Потоко-безопасные форматтеры
+	public static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss.SSS");
+	public static final DateTimeFormatter TIME_LOG_FORMAT_FROM = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+	public static final DateTimeFormatter TIME_LOG_FORMAT_TO = DateTimeFormatter.ofPattern("HH:mm");
 	// Можно менять под себя
 	public static final boolean IS_NEW_DATE_FORMAT = true;
-	public static final SimpleDateFormat TIME_LOG_FORMAT = IS_NEW_DATE_FORMAT
-			? new SimpleDateFormat("yyyy-MM-dd HH:mm:ss,SSS")
-			: new SimpleDateFormat("MM-dd;HH:mm:ss.SSS");
+	public static final DateTimeFormatter TIME_LOG_FORMAT = IS_NEW_DATE_FORMAT
+			? DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss,SSS")
+			: DateTimeFormatter.ofPattern("MM-dd;HH:mm:ss.SSS");
 
 	private static final String PATH_TO_LOG_FILE = "C:\\Users\\bulavin.ilya\\Downloads\\SUP-2152455\\";
 	// Можно менять под себя
@@ -46,11 +48,11 @@ public class LogAnalyzer {
 	private static final String SERVER_LOG_DETAILS = "serverLogDetails.log";
 
 	public static void logDebug(String message) {
-		System.out.println(DATE_FORMAT.format(new Date()) + ": " + message);
+		System.out.println(LocalTime.now().format(TIME_FORMAT) + ": " + message);
 	}
 
 	public static void logError(String errMessage) {
-		System.err.println(DATE_FORMAT.format(new Date()) + ": " + errMessage);
+		System.err.println(LocalTime.now().format(TIME_FORMAT) + ": " + errMessage);
 	}
 
 	public static void main(String[] args) {
@@ -81,9 +83,9 @@ public class LogAnalyzer {
 					}
 					analysisData.logBounds.add(bounds);
 
-					// 2. Затем приступаем к анализу содержимого. Используем Scanner с явной кодировкой UTF-8
-					try (Scanner scanner = new Scanner(file, StandardCharsets.UTF_8)) {
-						analyze(analysisData, infosByDate, scanner);
+					// 2. Затем приступаем к анализу содержимого. Используем быстрый BufferedReader с явной кодировкой UTF-8
+					try (BufferedReader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
+						analyze(analysisData, infosByDate, reader);
 					}
 				} catch (Exception e) {
 					logError(String.format("Ошибка при обработке файла [%s]: %s", file.getFileName(), ExceptionUtils.getRootCauseMessage(e)));
@@ -124,8 +126,8 @@ public class LogAnalyzer {
 
 		if (firstValidLine != null) {
 			return new LogBounds(file.getFileName().toString(),
-					"Начало лога: " + StringUtils.trim(StringUtils.substringBefore(firstValidLine, " [")),
-					"Конец лога: " + StringUtils.trim(StringUtils.substringBefore(lastValidLine, " [")));
+					"начало лога: " + StringUtils.trim(StringUtils.substringBefore(firstValidLine, " [")),
+					"конец лога: " + StringUtils.trim(StringUtils.substringBefore(lastValidLine, " [")));
 		}
 		return null;
 	}
@@ -144,43 +146,32 @@ public class LogAnalyzer {
 			return false;
 		}
 
+		// Пытаемся распарсить дату из начала строки.
+		// Берем подстроку до первого пробела после секунд/миллисекунд или до " INFO/DEBUG"
+		// Упрощенно: берем первые ~23 символа (yyyy-MM-dd HH:mm:ss,SSS)
+		int len = Math.min(line.length(), 23);
+		String datePart = line.substring(0, len);
+
+		// Попытка парсинга. Если формат не совпадает, выбросит исключение.
+		// Чтобы не создавать объекты Date каждый раз при проверке миллионов строк,
+		// можно использовать более простую эвристику (регулярку), но parse надежнее.
+		// Для оптимизации можно проверить наличие разделителей '-' и ':'
+		if (!datePart.contains("-") || !datePart.contains(":")) {
+			return false;
+		}
+
 		try {
-			// Пытаемся распарсить дату из начала строки.
-			// Берем подстроку до первого пробела после секунд/миллисекунд или до " INFO/DEBUG"
-			// Упрощенно: берем первые ~23 символа (yyyy-MM-dd HH:mm:ss,SSS)
-			int len = Math.min(line.length(), 25);
-			String datePart = line.substring(0, len);
-
-			// Попытка парсинга. Если формат не совпадает, выбросит исключение.
-			// Чтобы не создавать объекты Date каждый раз при проверке миллионов строк,
-			// можно использовать более простую эвристику (регулярку), но parse надежнее.
-			// Для оптимизации можно проверить наличие разделителей '-' и ':'
-			if (!datePart.contains("-") || !datePart.contains(":")) {
-				return false;
-			}
-
-			// Синхронизация не нужна, если используем локально в одном потоке,
-			// но SimpleDateFormat не потокобезопасен. Здесь вызов в одном потоке чтения.
+			// Пытаемся распарсить. Если формат не совпадает, выбросит DateTimeParseException
 			TIME_LOG_FORMAT.parse(datePart.trim());
 			return true;
-		} catch (ParseException e) {
+		} catch (DateTimeParseException e) {
 			return false;
 		}
 	}
 
-	private static void analyze(AnalysisData analysisData, TreeSet<Info> infosByDate, @NotNull Scanner scanner) {
+	private static void analyze(AnalysisData analysisData, TreeSet<Info> infosByDate, @NotNull BufferedReader reader) throws IOException {
 		String line;
-		long numLine = 0;
-
-		while (scanner.hasNextLine()) {
-			line = scanner.nextLine();
-			numLine++;
-
-			// Оптимизация: gc() каждые 10000 строк может сильно тормозить.
-			if (numLine % 100000 == 0) {
-				System.gc(); // Лучше убрать, JVM сама справляется эффективнее
-			}
-
+		while ((line = reader.readLine()) != null) {
 			// Пропускаем строки, которые не являются началом записи лога (обрывки стектрейсов)
 			if (!isValidLogLine(line)) {
 				continue;
@@ -199,18 +190,16 @@ public class LogAnalyzer {
 				continue;
 			}
 
-			// Парсинг даты (теперь мы уверены, что строка валидна)
 			String dateStr = StringUtils.substringBefore(line, " INFO");
-			// Если формат отличается (например DEBUG), нужно быть аккуратнее.
-			// Предположим, что дата всегда в начале до первого слова уровня логирования.
+			// Дата всегда в начале до первого слова уровня логирования
 			if (dateStr.length() > 25) {
 				dateStr = dateStr.substring(0, 25);
 			}
 
-			Date timeLog;
+			LocalDateTime timeLog;
 			try {
-				timeLog = TIME_LOG_FORMAT.parse(dateStr.trim());
-			} catch (ParseException e) {
+				timeLog = LocalDateTime.parse(dateStr.trim(), TIME_LOG_FORMAT);
+			} catch (DateTimeParseException e) {
 				// Если вдруг строка прошла проверку isValidLogLine, но здесь ошибка - пропускаем
 				continue;
 			}
@@ -244,13 +233,9 @@ public class LogAnalyzer {
 			if (isStart) {
 				infosByDate.add(info);
 			}
-			if (analysisData.analysis.containsKey(guid)) {
-				analysisData.analysis.get(guid).add(info);
-			} else {
-				List<Info> infos = new ArrayList<>();
-				infos.add(info);
-				analysisData.analysis.put(guid, infos);
-			}
+
+			// Оптимизация: computeIfAbsent короче и чище
+			analysisData.analysis.computeIfAbsent(guid, k -> new ArrayList<>()).add(info);
 		}
 	}
 
@@ -271,10 +256,10 @@ public class LogAnalyzer {
 						}
 						continue;
 					}
-					if (startTransition.timeLog.after(endTransition.timeLog)) {
+					if (startTransition.timeLog.isAfter(endTransition.timeLog)) {
 						continue;
 					}
-					if (startTransition.timeLog.before(endTransition.timeLog) || startTransition.timeLog.equals(endTransition.timeLog)) {
+					if (startTransition.timeLog.isBefore(endTransition.timeLog) || startTransition.timeLog.equals(endTransition.timeLog)) {
 						// Нашли пару
 						endTransitionsItr.remove();
 						return;
@@ -299,6 +284,7 @@ public class LogAnalyzer {
 			SortedSet<TransitionCount> sortedTransitions = analysisData.transitionCounts.entrySet().stream()
 					.map(e -> new TransitionCount(e.getKey(), e.getValue()))
 					.collect(Collectors.toCollection(TreeSet::new));
+
 			for (LogBounds bound : analysisData.logBounds) {
 				writer.write(bound.toString());
 				writer.newLine();
@@ -315,16 +301,16 @@ public class LogAnalyzer {
 			writer.newLine();
 			writer.write("Завершено проверок: " + analysisData.endVerify);
 			writer.newLine();
-			writer.write("Переходы:\n\t" + sortedTransitions.stream().map(Record::toString).collect(Collectors.joining("\n\t")));
+			writer.write("Переходы:\n\t" + sortedTransitions.stream().map(TransitionCount::toString).collect(Collectors.joining("\n\t")));
 			writer.newLine();
 
 			List<String> list = analysisData.analysis.entrySet().stream()
 					.filter(entry -> entry.getValue().size() / 2 >= 10)
 					.map(entry -> entry.getKey() + ": [" + entry.getValue().size() / 2 + "] " +
-							entry.getValue().stream()
-									.map(info -> info.transitionName)
-									.distinct()
-									.collect(Collectors.joining(",")))
+								  entry.getValue().stream()
+										  .map(info -> info.transitionName)
+										  .distinct()
+										  .collect(Collectors.joining(",")))
 					.toList();
 
 			writer.write("Более 10 переходов у документов: " + list.size() + System.lineSeparator() + StringUtils.join(list, System.lineSeparator()));
@@ -345,53 +331,64 @@ public class LogAnalyzer {
 
 	private static void writeLongestTransitions(@NotNull BufferedWriter writer, @NotNull Map<String, List<Info>> analysis) throws IOException {
 		List<Pair<String, Long>> longTransitions = new ArrayList<>();
-		analysis.forEach((guid, transitions) -> {
-			Iterator<Info> transitionInfos = transitions.iterator();
-			while (transitionInfos.hasNext()) {
-				Info startInfo = transitionInfos.next();
-				if (!transitionInfos.hasNext()) {
-					// Если нет завершающего элемента для текущего старта, выходим из цикла
-					break;
-				}
-				Info endInfo = transitionInfos.next();
 
-				// Вычисляем длительность перехода в миллисекундах
-				long durationMillis = endInfo.timeLog().getTime() - startInfo.timeLog().getTime();
-				// Проверяем, превышает ли длительность N ms
-				if (durationMillis > LONG_TRANSITIONS) {
-					// Пишем информацию о переходе
-					longTransitions.add(new Pair<>(String.format("\n\t%s: %s %d ms", guid, startInfo, durationMillis), durationMillis));
+		analysis.forEach((guid, transitions) -> {
+			// 1. Сортируем события по времени, чтобы гарантировать хронологический порядок обработки
+			transitions.sort(Comparator.comparing(Info::timeLog));
+
+			// 2. Храним активные (запущенные, но еще не завершенные) переходы.
+			// Ключ теперь включает ИМЯ ПОТОКА, чтобы строго связывать start и end одного и того же выполнения.
+			Map<String, Queue<Info>> activeStarts = new HashMap<>();
+
+			transitions.forEach(info -> {
+				// Уникальный ключ для конкретной нити выполнения конкретного перехода
+				String executionKey = info.transitionName + " | " + info.threadName;
+				if (info.isStart()) {
+					// Если это старт, добавляем его в очередь активных для данного типа перехода и потока
+					activeStarts.computeIfAbsent(executionKey, k -> new ArrayDeque<>()).add(info);
+					return;
 				}
-			}
+				// Если это завершение, ищем соответствующий ему старт в ТОМ ЖЕ потоке
+				Queue<Info> starts = activeStarts.get(executionKey);
+				if (starts == null || starts.isEmpty()) {
+					// Мы поймали "конец" без "начала" в этом потоке.
+					// Это нормально (например, переход начался до начала анализируемого лог-файла), просто игнорируем.
+					return;
+				}
+				// Берем самый ранний незавершенный старт (FIFO)
+				Info startInfo = starts.poll();
+				long durationMillis = Duration.between(startInfo.timeLog, info.timeLog).toMillis();
+				// Проверяем, превышает ли длительность порог
+				if (durationMillis <= LONG_TRANSITIONS) {
+					return;
+				}
+				// Формируем информативную строку с указанием времени начала и конца для наглядности
+				String details = String.format("\t%s: [%s] [%s] с %s по %s = %d ms%n",
+						guid, startInfo.transitionName, startInfo.threadName,
+						startInfo.timeLog.format(TIME_FORMAT), info.timeLog.format(TIME_FORMAT), durationMillis);
+				longTransitions.add(new Pair<>(details, durationMillis));
+
+			});
 		});
-		writer.write(String.format("Переходы более %d секунд: %d", LONG_TRANSITIONS / 1000, longTransitions.size()));
+
+		writer.write(String.format("Переходы более %d мс: %d%n", LONG_TRANSITIONS, longTransitions.size()));
+
 		if (longTransitions.isEmpty()) {
 			return;
 		}
+
+		// Сортируем от самых долгих к коротким
 		longTransitions.sort((o1, o2) -> Long.compare(o2.getValue(), o1.getValue()));
+
 		for (Pair<String, Long> lt : longTransitions) {
 			writer.write(lt.getKey());
 		}
 	}
 
-	private static void writeTransitionsByInterval(BufferedWriter writer, @NotNull TreeSet<Info> infosByDate, @SuppressWarnings("SameParameterValue") int intervalMinutes) throws IOException {
+	private static void writeTransitionsByInterval(@NotNull BufferedWriter writer, @NotNull TreeSet<Info> infosByDate, @SuppressWarnings("SameParameterValue") int intervalMinutes) throws IOException {
 		Map<String, Integer> transitionsByInterval = new TreeMap<>();
-		long intervalMillis = (long) intervalMinutes * 60 * 1000;
-
-		for (Info info : infosByDate) {
-			// Определяем начало интервала для текущей записи
-			long intervalStart = (info.timeLog().getTime() / intervalMillis) * intervalMillis;
-			Date intervalStartDate = new Date(intervalStart);
-
-			// Определяем конец интервала
-			Date intervalEndDate = new Date(intervalStart + intervalMillis);
-
-			// Форматируем начало и конец интервала в строку
-			String intervalKey = TIME_LOG_FORMAT_FROM.format(intervalStartDate) + "-" + TIME_LOG_FORMAT_TO.format(intervalEndDate);
-
-			// Увеличиваем счетчик для этого интервала
-			transitionsByInterval.put(intervalKey, transitionsByInterval.getOrDefault(intervalKey, 0) + 1);
-		}
+		Interval interval = new Interval(intervalMinutes, (long) intervalMinutes * 60 * 1000);
+		infosByDate.forEach(info -> byInterval(info.timeLog, interval, transitionsByInterval));
 
 		// Записываем результат в файл
 		writer.newLine();
@@ -404,6 +401,23 @@ public class LogAnalyzer {
 					.toList();
 			writer.write(String.join(System.lineSeparator(), lines));
 		}
+	}
+
+	public static void byInterval(@NotNull LocalDateTime timeLog, @NotNull Interval interval, @NotNull Map<String, Integer> mapByInterval) {
+		// Используем epoch millis для надежного группирования по интервалам
+		long epochMillis = timeLog.toInstant(ZoneOffset.ofHours(3)).toEpochMilli();
+		long intervalStartMillis = (epochMillis / interval.ms) * interval.ms;
+		// Начало интервала
+		LocalDateTime intervalStart = LocalDateTime.ofInstant(Instant.ofEpochMilli(intervalStartMillis), ZoneId.systemDefault());
+		// Конец интервала
+		LocalDateTime intervalEnd = intervalStart.plusMinutes(interval.min);
+		// Форматируем начало и конец интервала в строку
+		String intervalKey = intervalStart.format(TIME_LOG_FORMAT_FROM) + "-" + intervalEnd.format(TIME_LOG_FORMAT_TO);
+		// Увеличиваем счетчик для этого интервала
+		mapByInterval.put(intervalKey, mapByInterval.getOrDefault(intervalKey, 0) + 1);
+	}
+
+	public record Interval(int min, long ms) {
 	}
 
 	// Класс-контейнер для границ лога
@@ -420,7 +434,7 @@ public class LogAnalyzer {
 
 		@Override
 		public String toString() {
-			return fileName + ":" + "\n" + startLine + "\n" + endLine;
+			return fileName + ": " + startLine + " - " + endLine;
 		}
 	}
 
@@ -434,11 +448,11 @@ public class LogAnalyzer {
 		int endTransitionsCount = 0;
 	}
 
-	private record Info(Date timeLog, String transitionName, String threadName, boolean isStart) {
+	private record Info(LocalDateTime timeLog, String transitionName, String threadName, boolean isStart) {
 		@Contract(pure = true)
 		@Override
 		public @NotNull String toString() {
-			return DATE_FORMAT.format(timeLog) + ": " + transitionName + ", " + threadName;
+			return timeLog.format(TIME_FORMAT) + ": " + transitionName + ", " + threadName;
 		}
 	}
 

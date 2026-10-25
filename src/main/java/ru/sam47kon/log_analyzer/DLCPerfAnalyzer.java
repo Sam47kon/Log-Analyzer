@@ -15,6 +15,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.ParseException;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -62,8 +65,8 @@ public class DLCPerfAnalyzer {
 		}
 
 		infos.sort(Comparator.naturalOrder());
-		System.out.println("Начало лога: " + TIME_LOG_FORMAT.format(startLog));
-		System.out.println("Конец лога: " + TIME_LOG_FORMAT.format(endLog));
+		System.out.println("Начало лога: " + LocalDateTime.ofInstant(startLog.toInstant(), ZoneId.systemDefault()).format(TIME_LOG_FORMAT));
+		System.out.println("Конец лога: " + LocalDateTime.ofInstant(endLog.toInstant(), ZoneId.systemDefault()).format(TIME_LOG_FORMAT));
 		System.out.println("Всего успешных переходов: " + infos.size());
 		// "Переходы:
 		System.out.println(formatTransitionCounts1(infos));
@@ -84,7 +87,7 @@ public class DLCPerfAnalyzer {
 			if (!scanner.hasNextLine()) {
 				continue;
 			}
-			Date timeLog = TIME_LOG_FORMAT.parse(StringUtils.substringBefore(line, DEBUG));
+			Date timeLog = Date.from(LocalDateTime.parse(StringUtils.substringBefore(line, DEBUG).trim(), TIME_LOG_FORMAT).toInstant(ZoneOffset.ofHours(3)));
 			if (timeLog.before(startLog)) {
 				startLog.setTime(timeLog.getTime());
 			}

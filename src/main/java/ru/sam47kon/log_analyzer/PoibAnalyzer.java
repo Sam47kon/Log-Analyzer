@@ -13,8 +13,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -29,7 +28,6 @@ public class PoibAnalyzer {
 
 	private static final String POIB_PATTERN = "poib";
 	private static final String REQUEST_SOBI_PATTERN = "Сформирован запрос на ";
-	private static final SimpleDateFormat TIME_LOG_FORMAT = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss,SSS");
 	private static final String POIB_LOG_DETAILS = "poibLogDetails.log";
 
 	public static void main(String[] args) {
@@ -67,7 +65,7 @@ public class PoibAnalyzer {
 		logDebug("Время анализа: " + stopWatch.getTime() + " ms");
 	}
 
-	private static void analyze(@NotNull Scanner scanner, Map<String, List<Info>> analysisData) throws ParseException {
+	private static void analyze(@NotNull Scanner scanner, Map<String, List<Info>> analysisData) {
 		boolean isFirstLine = true;
 		String line = null;
 		long numLine = 0;
@@ -84,7 +82,7 @@ public class PoibAnalyzer {
 			if (!line.contains(REQUEST_SOBI_PATTERN)) {
 				continue;
 			}
-			Date timeLog = TIME_LOG_FORMAT.parse(StringUtils.substringBefore(line, " DEBUG"));
+			LocalDateTime timeLog = LocalDateTime.parse(StringUtils.substringBefore(line, " DEBUG").trim(), TIME_LOG_FORMAT);
 			String typeRequest = StringUtils.substringAfter(StringUtils.substringBetween(line, REQUEST_SOBI_PATTERN, "("), ": ");
 			String threadName = StringUtils.substringBetween(line, "[", "]");
 			String hash = StringUtils.substringBetween(line, "(", ")");
@@ -115,6 +113,7 @@ public class PoibAnalyzer {
 			writer.write(String.format("Запросы SOBI: \n\t%s", analysisData.entrySet().stream().map(e -> e.getKey() + ": " + e.getValue().size()).collect(Collectors.joining("\n\t"))));
 			writer.newLine();
 			writer.write("Количество запросов по временным интервалам (" + INTERVAL_MINUTES + " минут):");
+			// Интервал в минутах
 			analysisData.forEach((typeRequest, requestData) -> writeRequestsByInterval(typeRequest, writer, requestData));
 		} catch (IOException e) {
 			logError("Ошибка при записи в файл: " + e.getMessage());
@@ -126,20 +125,8 @@ public class PoibAnalyzer {
 	private static void writeRequestsByInterval(String typeRequest, @NotNull BufferedWriter writer, @NotNull List<Info> requestData) {
 		requestData.sort(Comparator.comparing(o -> o.timeLog));
 		Map<String, Integer> requestsByInterval = new TreeMap<>();
-		for (Info info : requestData) {
-			// Определяем начало интервала для текущей записи
-			long intervalStart = (info.timeLog().getTime() / ((long) INTERVAL_MINUTES * 60 * 1000)) * ((long) INTERVAL_MINUTES * 60 * 1000);
-			Date intervalStartDate = new Date(intervalStart);
-
-			// Определяем конец интервала
-			Date intervalEndDate = new Date(intervalStart + ((long) INTERVAL_MINUTES * 60 * 1000));
-
-			// Форматируем начало и конец интервала в строку
-			String intervalKey = TIME_LOG_FORMAT_FROM.format(intervalStartDate) + "-" + TIME_LOG_FORMAT_TO.format(intervalEndDate);
-
-			// Увеличиваем счетчик для этого интервала
-			requestsByInterval.put(intervalKey, requestsByInterval.getOrDefault(intervalKey, 0) + 1);
-		}
+		Interval interval = new Interval(INTERVAL_MINUTES, (long) INTERVAL_MINUTES * 60 * 1000);
+		requestData.forEach(info -> byInterval(info.timeLog, interval, requestsByInterval));
 
 		// Записываем результат в файл
 		writer.newLine();
@@ -150,11 +137,11 @@ public class PoibAnalyzer {
 		}
 	}
 
-	private record Info(Date timeLog, String typeRequest, String threadName, String hash, String request) {
+	private record Info(LocalDateTime timeLog, String typeRequest, String threadName, String hash, String request) {
 		@Contract(pure = true)
 		@Override
 		public @NotNull String toString() {
-			return DATE_FORMAT.format(timeLog) + ": " + hash + " " + typeRequest + ", [" + threadName + "]";
+			return timeLog.format(TIME_FORMAT) + ": " + hash + " " + typeRequest + ", [" + threadName + "]";
 		}
 	}
 }
